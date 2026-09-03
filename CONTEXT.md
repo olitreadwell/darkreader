@@ -33,3 +33,6 @@
 - 2026-09-03 src/ui/popup/components/loader/index.tsx:33 "A unknown error has occured" -> "An unknown error has occurred" — status: proposed
 - 2026-09-03 README.md:5 `el="noreferrer noopener"` -> `rel="noreferrer noopener"` (broken HTML attr) — status: proposed
 - 2026-09-03 docs/color-schemes-drconf.spec:49 `text: 3b4252` -> `text: #3b4252` (missing # prefix) — status: proposed
+
+## Gap ledger (dedupe — READ FIRST, never re-pick)
+- 2026-09-03 self-found typo/doc cleanup (5 fixes, 5 files) — outcome: pr-opened https://github.com/olitreadwell/darkreader/pull/1 — lesson: substantive CI (unit+lint) green; browser-test job fails on fork karma-adapter harness issue, unrelated to diff.
