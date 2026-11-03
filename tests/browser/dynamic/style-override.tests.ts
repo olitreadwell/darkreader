@@ -114,8 +114,7 @@ describe('Style override', () => {
             const styleElement = document.createElement('style');
             styleElement.classList.add('testcase-style');
             document.head.append(styleElement);
-            styleElement.sheet!.insertRule('h1 { color: gray } ');
-            styleElement.sheet!.insertRule('strong { color: red } ');
+            styleElement.textContent = 'h1 { color: gray } strong { color: red }';
         });
 
         await expect(pageUtils.evaluateScript(async (product) => {
@@ -130,7 +129,7 @@ describe('Style override', () => {
 
         await expectStyles([
             ['h1', 'color', 'rgb(152, 143, 129)'],
-            ['h1 strong', 'color', 'rgb(255, 26, 26)'],
+            ['strong', 'color', 'rgb(255, 26, 26)'],
         ]);
     });
 
@@ -201,11 +200,11 @@ describe('Style override', () => {
 
         await pageUtils.evaluateScript(async () => {
             const style = document.querySelector('.testcase-style')!;
-            (style as HTMLStyleElement).sheet!.insertRule('html { background-color: pink }');
+            (style as HTMLStyleElement).sheet!.insertRule('body { background-color: pink }');
         });
 
         await expectStyles([
-            ['html', 'background-color', 'rgb(89, 0, 16)'],
+            ['body', 'background-color', 'rgb(89, 0, 16)'],
         ]);
 
         if (product === 'edge') {
@@ -215,7 +214,7 @@ describe('Style override', () => {
         await expect(pageUtils.evaluateScript(async () => {
             const style = document.querySelector('.testcase-style')!;
             return (style.nextSibling as HTMLStyleElement).sheet!.cssRules[0].cssText;
-        })).resolves.toBe('html { background-color: var(--darkreader-background-ffc0cb, #590010); }');
+        })).resolves.toBe('body { background-color: var(--darkreader-background-ffc0cb, #590010); }');
     });
 
     it('should react to a new style', async () => {
@@ -249,7 +248,7 @@ describe('Style override', () => {
         }
 
         await expect(pageUtils.evaluateScript(async () => {
-            const styleElement = document.createElement('style');
+            const styleElement = document.querySelector('.testcase-style')!;
             return (styleElement.nextSibling as HTMLStyleElement).sheet!.cssRules.length === 2 && (styleElement.nextSibling as HTMLStyleElement).classList.contains('darkreader--sync');
         })).resolves.toBe(true);
     });
@@ -292,6 +291,70 @@ describe('Style override', () => {
 
         await expectStyles([
             [['custom-element', 'p'], 'color', 'rgb(255, 160, 177)'],
+        ]);
+    });
+
+    it('should not override variable set inside nested @media', async () => {
+        await loadTestPage({
+            '/': multiline(
+                '<!DOCTYPE html>',
+                '<html>',
+                '<head>',
+                '    <style>',
+                '        :root { --size: 16px; }',
+                '        .nested {',
+                '            --width: 64px;',
+                '            margin-left: var(--width);',
+                '            @media (min-width: 1px) {',
+                '                --width: calc(2 * var(--size));',
+                '            }',
+                '        }',
+                '    </style>',
+                '</head>',
+                '<body>',
+                '    <div class="nested">Nested</div>',
+                '</body>',
+                '</html>',
+            ),
+        });
+
+        await expectStyles([
+            ['.nested', 'margin-left', '32px'],
+        ]);
+    });
+
+    it('should keep style proxy after theme rebuild', async () => {
+        if (product === 'firefox') {
+            return;
+        }
+        await loadTestPage({
+            '/': multiline(
+                '<!DOCTYPE html>',
+                '<html>',
+                '<head>',
+                '    <style class="testcase-style"></style>',
+                '</head>',
+                '<body>',
+                '    <div class="target">Proxy</div>',
+                '</body>',
+                '</html>',
+            ),
+        });
+
+        await pageUtils.evaluateScript(() => {
+            document.dispatchEvent(new CustomEvent('__darkreader__cleanUp'));
+            document.dispatchEvent(new CustomEvent('__darkreader__stylesheetProxy__arg', {
+                detail: {enableStyleSheetsProxy: true, enableCustomElementRegistryProxy: true},
+            }));
+        });
+
+        await pageUtils.evaluateScript(() => {
+            const style = document.querySelector('.testcase-style') as HTMLStyleElement;
+            style.sheet!.insertRule('.target { background-color: white; }');
+        });
+
+        await expectStyles([
+            ['.target', 'background-color', 'rgb(24, 26, 27)'],
         ]);
     });
 });
